@@ -18,6 +18,7 @@ enum CropType {
 }
 
 class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
+  late Sprite _tilledSprite;
   TileState _state = TileState.grass;
   CropType? _cropType;
   double _growthProgress = 0.0;
@@ -42,6 +43,12 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
           size: Vector2.all(tileSize),
           // paint: Paint()..color = Colors.green.shade300, // Убрали начальный сплошной цвет
         );
+
+  @override
+  Future<void> onLoad() async {
+    await super.onLoad();
+    _tilledSprite = await gameRef.loadSprite('tiles/bed1.png');
+  }
 
   @override
   void update(double dt) {
@@ -83,28 +90,29 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   }
 
   void _updateVisuals() {
-    Color color;
-    
+    // Удаляем все дочерние спрайты перед отрисовкой нового состояния
+    // (если таковые были, чтобы избежать наложения)
+    removeAll(children.whereType<SpriteComponent>());
+
     switch (_state) {
       case TileState.grass:
-        color = Colors.transparent; // Сделали траву прозрачной, чтобы было видно фон
+        paint.color = Colors.transparent; // Трава прозрачна
         break;
       case TileState.tilled:
-        color = Colors.brown.shade400;
+        // Добавляем спрайт грядки
+        add(SpriteComponent(sprite: _tilledSprite, size: size));
+        paint.color = Colors.transparent; // Сделаем сам тайл прозрачным, чтобы видеть спрайт
         break;
       case TileState.planted:
-        // Красный если нужно поливать
-        color = _needsWater ? Colors.red.shade300 : Colors.brown.shade600;
+        paint.color = _needsWater ? Colors.red.shade300 : Colors.brown.shade600;
         break;
       case TileState.watered:
-        color = Colors.blue.shade300; // Синий = полито
+        paint.color = Colors.blue.shade300; // Синий = полито
         break;
       case TileState.grown:
-        color = _getCropColor();
+        paint.color = _getCropColor();
         break;
     }
-    
-    paint.color = color;
   }
 
   Color _getCropColor() {
