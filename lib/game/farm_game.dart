@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../components/farm_tile.dart';
 import '../components/inventory_overlay.dart'; // Добавили импорт InventoryOverlay
 import '../components/text_button_component.dart'; // Добавили импорт TextButtonComponent
+import '../components/market_overlay.dart'; // Добавили импорт MarketOverlay
 
 class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollisionDetection {
   // Константы для размеров игрового поля
@@ -14,6 +15,17 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
   static const double tileSize = 64.0;
   
   CropType currentCropType = CropType.wheat; // Текущий выбранный тип культуры для посадки
+
+  int coins = 200; // Начальное количество монет
+
+  // Цены на семена
+  final Map<CropType, int> seedPrices = {
+    CropType.wheat: 10,
+    CropType.carrot: 20,
+    CropType.cabbage: 30,
+    CropType.onion: 40,
+    CropType.potato: 50,
+  };
 
   // Инвентарь семян (количество каждого типа)
   final Map<CropType, int> seedInventory = {
@@ -37,6 +49,7 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
   late TextComponent infoText;
   late TextComponent instructionsText;
   late final InventoryOverlay _inventoryOverlay;
+  late final MarketOverlay _marketOverlay; // Добавляем компонент рынка
 
   // Метод для выбора текущего типа культуры
   void selectCropType(CropType cropType) {
@@ -66,6 +79,21 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
     _updateUI(); // Обновить UI после сбора урожая
   }
 
+  // Метод для покупки семян
+  bool buySeed(CropType cropType, int quantity) {
+    final int price = seedPrices[cropType]! * quantity;
+    if (coins >= price) {
+      coins -= price;
+      seedInventory[cropType] = seedInventory[cropType]! + quantity;
+      print('Куплено $quantity семян ${cropType.name} за $price монет. Осталось монет: $coins');
+      _updateUI(); // Обновить UI после покупки
+      return true;
+    }
+    print('Недостаточно монет для покупки $quantity семян ${cropType.name} (нужно $price, есть $coins)');
+    _updateUI(); // Обновить UI даже при неудачной покупке
+    return false;
+  }
+
   void openInventory() {
     add(_inventoryOverlay);
     print("Инвентарь открыт");
@@ -74,6 +102,16 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
   void closeInventory() {
     _inventoryOverlay.removeFromParent();
     print("Инвентарь закрыт");
+  }
+
+  void openMarket() {
+    add(_marketOverlay);
+    print("Рынок открыт");
+  }
+
+  void closeMarket() {
+    _marketOverlay.removeFromParent();
+    print("Рынок закрыт");
   }
 
   @override
@@ -148,9 +186,20 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
       onPressed: openInventory,
     ));
 
+    // Кнопка Магазин
+    add(TextButtonComponent(
+      text: 'МАГАЗИН',
+      position: Vector2(size.x - 200, rows * tileSize + 20), // Левее РЮКЗАКА
+      onPressed: openMarket,
+    ));
+
     // Компонент инвентаря (скрыт по умолчанию)
     _inventoryOverlay = InventoryOverlay(game: this, position: Vector2.zero(), size: size);
     // НЕ добавляем его здесь, он будет добавляться при openInventory()
+
+    // Компонент рынка (скрыт по умолчанию)
+    _marketOverlay = MarketOverlay(game: this, position: Vector2.zero(), size: size);
+    // НЕ добавляем его здесь, он будет добавляться при openMarket()
 
     print('🌾 Ферма загружена! Тайлов: ${rows * columns}');
     print('📝 Используйте мышь или тап для взаимодействия с тайлами');
