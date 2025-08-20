@@ -4,6 +4,8 @@ import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import '../components/farm_tile.dart';
+import '../components/inventory_overlay.dart'; // Добавили импорт InventoryOverlay
+import '../components/text_button_component.dart'; // Добавили импорт TextButtonComponent
 
 class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollisionDetection {
   // Константы для размеров игрового поля
@@ -34,14 +36,14 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
   // UI компоненты
   late TextComponent infoText;
   late TextComponent instructionsText;
-  late TextComponent _seedSelectionText;
-  late TextComponent _inventoryText;
+  late final InventoryOverlay _inventoryOverlay;
 
   // Метод для выбора текущего типа культуры
   void selectCropType(CropType cropType) {
     currentCropType = cropType;
     print('Выбрано: ${cropType.name}');
     _updateUI(); // Обновить UI после выбора
+    closeInventory(); // Закрыть инвентарь после выбора
   }
 
   // Метод для посадки семени (уменьшает количество в инвентаре)
@@ -62,6 +64,16 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
     harvestedCrops[cropType] = harvestedCrops[cropType]! + 1;
     print('Собран урожай ${cropType.name}. Всего: ${harvestedCrops[cropType]}');
     _updateUI(); // Обновить UI после сбора урожая
+  }
+
+  void openInventory() {
+    add(_inventoryOverlay);
+    print("Инвентарь открыт");
+  }
+
+  void closeInventory() {
+    _inventoryOverlay.removeFromParent();
+    print("Инвентарь закрыт");
   }
 
   @override
@@ -127,47 +139,16 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
     );
     add(infoText);
 
-    // Текст выбора семян
-    _seedSelectionText = TextComponent(
-      position: Vector2(size.x - 250, rows * tileSize + 10), // Справа вверху UI
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.blue,
-          fontSize: 14,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-    add(_seedSelectionText);
+    // Кнопка Рюкзак
+    add(TextButtonComponent(
+      text: 'РЮКЗАК',
+      position: Vector2(size.x - 100, rows * tileSize + 20), // Справа вверху UI
+      onPressed: openInventory,
+    ));
 
-    // Текст инвентаря
-    _inventoryText = TextComponent(
-      position: Vector2(size.x - 250, rows * tileSize + 50), // Справа внизу UI
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.black54,
-          fontSize: 10,
-        ),
-      ),
-    );
-    add(_inventoryText);
-
-    // Кнопки выбора семян (пример)
-    double buttonX = size.x - 250;
-    double buttonY = rows * tileSize + 100;
-
-    for (var cropType in CropType.values) {
-      add(TextButtonComponent(
-        text: cropType.name.toUpperCase(),
-        position: Vector2(buttonX, buttonY),
-        onPressed: () => selectCropType(cropType),
-      ));
-      buttonX += 70; // Сдвигаем кнопку
-      if (buttonX > size.x - 50) { // Перенос на новую строку
-        buttonX = size.x - 250;
-        buttonY += 20;
-      }
-    }
+    // Компонент инвентаря (скрыт по умолчанию)
+    _inventoryOverlay = InventoryOverlay(game: this, position: Vector2.zero(), size: size);
+    // НЕ добавляем его здесь, он будет добавляться при openInventory()
 
     print('🌾 Ферма загружена! Тайлов: ${rows * columns}');
     print('📝 Используйте мышь или тап для взаимодействия с тайлами');
@@ -181,6 +162,7 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
     _updateUI();
   }
 
+  @override
   void _updateUI() {
     // Подсчитываем статистику
     int grassTiles = 0;
@@ -213,43 +195,20 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
     infoText.text = '''🌱 Статистика фермы:
 🟢 Трава: $grassTiles  🟤 Грядки: $tilledTiles  🌾 Растет: $plantedTiles  ⭐ Готово: $grownTiles''';
 
-    // Обновляем текст выбора семян
-    _seedSelectionText.text = 'Выбрано: ${currentCropType.name.toUpperCase()} (Семян: ${seedInventory[currentCropType]}) ';
+    // Обновляем текст выбора семян - УДАЛЕНО, теперь в InventoryOverlay
+    // _seedSelectionText.text = 'Выбрано: ${currentCropType.name.toUpperCase()} (Семян: ${seedInventory[currentCropType]}) ';
 
-    // Обновляем текст инвентаря
-    String inventoryStatus = 'Урожай:';
-    harvestedCrops.forEach((type, count) {
-      if (count > 0) {
-        inventoryStatus += ' ${type.name}: $count';
-      }
-    });
-    if (inventoryStatus == 'Урожай:') {
-      inventoryStatus += ' пока нет';
-    }
-    _inventoryText.text = inventoryStatus;
-  }
-}
-
-class TextButtonComponent extends TextComponent with TapCallbacks {
-  final VoidCallback onPressed;
-
-  TextButtonComponent({required String text, required Vector2 position, required this.onPressed})
-      : super(
-          text: text,
-          position: position,
-          textRenderer: TextPaint(
-            style: const TextStyle(
-              color: Colors.deepPurple,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        );
-
-  @override
-  bool onTapDown(TapDownEvent event) {
-    onPressed.call();
-    return true;
+    // Обновляем текст инвентаря - УДАЛЕНО, теперь в InventoryOverlay
+    // String inventoryStatus = 'Урожай:';
+    // harvestedCrops.forEach((type, count) {
+    //   if (count > 0) {
+    //     inventoryStatus += ' ${type.name}: $count';
+    //   }
+    // });
+    // if (inventoryStatus == 'Урожай:') {
+    //   inventoryStatus += ' пока нет';
+    // }
+    // _inventoryText.text = inventoryStatus;
   }
 }
 
