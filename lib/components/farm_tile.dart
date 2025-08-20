@@ -40,7 +40,7 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
       : super(
           position: Vector2(gridX * tileSize, gridY * tileSize),
           size: Vector2.all(tileSize),
-          paint: Paint()..color = Colors.green.shade300,
+          // paint: Paint()..color = Colors.green.shade300, // Убрали начальный сплошной цвет
         );
 
   @override
@@ -87,7 +87,7 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
     
     switch (_state) {
       case TileState.grass:
-        color = Colors.green.shade300;
+        color = Colors.transparent; // Сделали траву прозрачной, чтобы было видно фон
         break;
       case TileState.tilled:
         color = Colors.brown.shade400;

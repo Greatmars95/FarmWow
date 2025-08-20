@@ -18,10 +18,11 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
   @override
   Future<void> onLoad() async {
     // ===== ФОН =====
-    add(RectangleComponent(
+    final backgroundSprite = await Sprite.load('tiles/area1.png');
+    add(SpriteComponent(
+      sprite: backgroundSprite,
       position: Vector2.zero(),
-      size: Vector2(columns * tileSize, rows * tileSize + 120), // +120 для UI
-      paint: Paint()..color = Colors.green.shade100,
+      size: Vector2(columns * tileSize, rows * tileSize), // Только для игровой сетки
     ));
 
     // ===== СЕТКА ИГРОВЫХ ТАЙЛОВ =====
@@ -31,16 +32,16 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
         final farmTile = FarmTile(gridX: col, gridY: row);
         add(farmTile);
 
-        // Рамка тайла
-        final border = RectangleComponent(
-          position: Vector2(col * tileSize, row * tileSize),
-          size: Vector2.all(tileSize),
-          paint: Paint()
-            ..color = Colors.black26
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.0,
-        );
-        add(border);
+        // Рамка тайла - УДАЛЕНО
+        // final border = RectangleComponent(
+        //   position: Vector2(col * tileSize, row * tileSize),
+        //   size: Vector2.all(tileSize),
+        //   paint: Paint()
+        //     ..color = Colors.black26
+        //     ..style = PaintingStyle.stroke
+        //     ..strokeWidth = 1.0,
+        // );
+        // add(border);
       }
     }
 
