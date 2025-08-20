@@ -2,6 +2,7 @@
 import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
+import '../game/farm_game.dart'; // Добавили импорт FarmGame
 
 enum TileState {
   grass,     // Трава (пустой тайл)
@@ -14,11 +15,15 @@ enum TileState {
 enum CropType {
   wheat,     // Пшеница
   carrot,    // Морковь
-  tomato,    // Помидор
+  cabbage,   // Капуста
+  onion,     // Лук
+  potato,    // Картофель
 }
 
 class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   late Sprite _tilledSprite;
+  late Map<CropType, Sprite> _grownSprites;
+  late Map<CropType, Sprite> _seedSprites;
   TileState _state = TileState.grass;
   CropType? _cropType;
   double _growthProgress = 0.0;
@@ -34,7 +39,9 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   static const Map<CropType, int> growthTimes = {
     CropType.wheat: 10,   // 10 секунд для теста
     CropType.carrot: 15,  // 15 секунд
-    CropType.tomato: 20,  // 20 секунд
+    CropType.cabbage: 12, // Примерное время роста
+    CropType.onion: 8,    // Примерное время роста
+    CropType.potato: 18,  // Примерное время роста
   };
 
   FarmTile({required this.gridX, required this.gridY})
@@ -48,6 +55,14 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   Future<void> onLoad() async {
     await super.onLoad();
     _tilledSprite = await gameRef.loadSprite('tiles/bed1.png');
+    
+    _grownSprites = {};
+    _seedSprites = {};
+    
+    for (var cropType in CropType.values) {
+      _grownSprites[cropType] = await gameRef.loadSprite('planting/${cropType.name}.png');
+      _seedSprites[cropType] = await gameRef.loadSprite('planting_seeds/${cropType.name}_seed.png');
+    }
   }
 
   @override
@@ -104,13 +119,25 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
         paint.color = Colors.transparent; // Сделаем сам тайл прозрачным, чтобы видеть спрайт
         break;
       case TileState.planted:
-        paint.color = _needsWater ? Colors.red.shade300 : Colors.brown.shade600;
+        // Добавляем спрайт семени
+        if (_cropType != null) {
+          add(SpriteComponent(sprite: _seedSprites[_cropType!]!, size: size));
+        }
+        paint.color = _needsWater ? Colors.red.shade300 : Colors.transparent; // Красный если нужно поливать, иначе прозрачно
         break;
       case TileState.watered:
-        paint.color = Colors.blue.shade300; // Синий = полито
+        // Добавляем спрайт семени (так как оно еще растет)
+        if (_cropType != null) {
+          add(SpriteComponent(sprite: _seedSprites[_cropType!]!, size: size));
+        }
+        paint.color = Colors.blue.shade300; // Синий = полито, но спрайт поверх
         break;
       case TileState.grown:
-        paint.color = _getCropColor();
+        // Добавляем спрайт выросшей культуры
+        if (_cropType != null) {
+          add(SpriteComponent(sprite: _grownSprites[_cropType!]!, size: size));
+        }
+        paint.color = Colors.transparent; // Сделаем сам тайл прозрачным, чтобы видеть спрайт
         break;
     }
   }
@@ -121,8 +148,12 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
         return Colors.yellow.shade600; // Спелая пшеница
       case CropType.carrot:
         return Colors.orange.shade600; // Морковь
-      case CropType.tomato:
-        return Colors.red.shade600; // Помидор
+      case CropType.cabbage:
+        return Colors.green.shade600; // Капуста
+      case CropType.onion:
+        return Colors.purple.shade600; // Лук
+      case CropType.potato:
+        return Colors.brown.shade600; // Картофель
       case null:
         return Colors.grey;
     }
@@ -143,8 +174,8 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
         break;
         
       case TileState.tilled:
-        // Сажаем пшеницу (по умолчанию)
-        _plantCrop(CropType.wheat);
+        // Сажаем выбранную культуру
+        _plantCrop((gameRef as FarmGame).currentCropType);
         break;
         
       case TileState.planted:
@@ -168,14 +199,19 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   }
 
   void _plantCrop(CropType cropType) {
-    _cropType = cropType;
-    _state = TileState.planted;
-    _growthProgress = 0.0;
-    _plantedTime = DateTime.now();
-    _wateredTime = DateTime.now(); // Сразу "полито"
-    _needsWater = false;
-    
-    print('Посажена ${cropType.name} на ($gridX, $gridY)');
+    // Проверяем наличие семян через FarmGame
+    if ((gameRef as FarmGame).plantSeed(cropType)) {
+      _cropType = cropType;
+      _state = TileState.planted;
+      _growthProgress = 0.0;
+      _plantedTime = DateTime.now();
+      _wateredTime = DateTime.now(); // Сразу "полито"
+      _needsWater = false;
+      
+      print('Посажена ${cropType.name} на ($gridX, $gridY)');
+    } else {
+      print('Недостаточно семян ${cropType.name}!');
+    }
   }
 
   void _waterCrop() {
@@ -189,6 +225,10 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   }
 
   void _harvestCrop() {
+    if (_cropType == null) return; // Нечего собирать
+    
+    // Собираем урожай через FarmGame
+    (gameRef as FarmGame).collectCrop(_cropType!); // Увеличиваем количество собранных культур
     print('Собран урожай ${_cropType?.name} с ($gridX, $gridY)!');
     
     // Возвращаем к траве

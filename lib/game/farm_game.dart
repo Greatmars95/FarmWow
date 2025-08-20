@@ -11,9 +11,58 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
   static const int columns = 8;
   static const double tileSize = 64.0;
   
+  CropType currentCropType = CropType.wheat; // Текущий выбранный тип культуры для посадки
+
+  // Инвентарь семян (количество каждого типа)
+  final Map<CropType, int> seedInventory = {
+    CropType.wheat: 10,  // Начальное количество семян пшеницы
+    CropType.carrot: 5,  // Начальное количество семян моркови
+    CropType.cabbage: 5,
+    CropType.onion: 5,
+    CropType.potato: 5,
+  };
+
+  // Собранный урожай (количество каждого типа)
+  final Map<CropType, int> harvestedCrops = {
+    CropType.wheat: 0,
+    CropType.carrot: 0,
+    CropType.cabbage: 0,
+    CropType.onion: 0,
+    CropType.potato: 0,
+  };
+
   // UI компоненты
   late TextComponent infoText;
   late TextComponent instructionsText;
+  late TextComponent _seedSelectionText;
+  late TextComponent _inventoryText;
+
+  // Метод для выбора текущего типа культуры
+  void selectCropType(CropType cropType) {
+    currentCropType = cropType;
+    print('Выбрано: ${cropType.name}');
+    _updateUI(); // Обновить UI после выбора
+  }
+
+  // Метод для посадки семени (уменьшает количество в инвентаре)
+  bool plantSeed(CropType cropType) {
+    if (seedInventory[cropType]! > 0) {
+      seedInventory[cropType] = seedInventory[cropType]! - 1;
+      print('Посажено семя ${cropType.name}. Осталось: ${seedInventory[cropType]}');
+      _updateUI(); // Обновить UI после посадки
+      return true;
+    }
+    print('Нет семян ${cropType.name}');
+    _updateUI(); // Обновить UI даже при неудачной посадке
+    return false;
+  }
+
+  // Метод для сбора урожая (увеличивает количество в инвентаре)
+  void collectCrop(CropType cropType) {
+    harvestedCrops[cropType] = harvestedCrops[cropType]! + 1;
+    print('Собран урожай ${cropType.name}. Всего: ${harvestedCrops[cropType]}');
+    _updateUI(); // Обновить UI после сбора урожая
+  }
 
   @override
   Future<void> onLoad() async {
@@ -50,7 +99,7 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
     instructionsText = TextComponent(
       text: '''🌱 ФЕРМА-СИМУЛЯТОР 🌱
 1. Нажми на траву → грядка
-2. Нажми на грядку → посади пшеницу  
+2. Нажми на грядку → посади выбранное семя
 3. Красный тайл = нужен полив
 4. Желтый = урожай готов!''',
       position: Vector2(10, rows * tileSize + 10),
@@ -77,9 +126,53 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
       ),
     );
     add(infoText);
-    
+
+    // Текст выбора семян
+    _seedSelectionText = TextComponent(
+      position: Vector2(size.x - 250, rows * tileSize + 10), // Справа вверху UI
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.blue,
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+    add(_seedSelectionText);
+
+    // Текст инвентаря
+    _inventoryText = TextComponent(
+      position: Vector2(size.x - 250, rows * tileSize + 50), // Справа внизу UI
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.black54,
+          fontSize: 10,
+        ),
+      ),
+    );
+    add(_inventoryText);
+
+    // Кнопки выбора семян (пример)
+    double buttonX = size.x - 250;
+    double buttonY = rows * tileSize + 100;
+
+    for (var cropType in CropType.values) {
+      add(TextButtonComponent(
+        text: cropType.name.toUpperCase(),
+        position: Vector2(buttonX, buttonY),
+        onPressed: () => selectCropType(cropType),
+      ));
+      buttonX += 70; // Сдвигаем кнопку
+      if (buttonX > size.x - 50) { // Перенос на новую строку
+        buttonX = size.x - 250;
+        buttonY += 20;
+      }
+    }
+
     print('🌾 Ферма загружена! Тайлов: ${rows * columns}');
     print('📝 Используйте мышь или тап для взаимодействия с тайлами');
+
+    _updateUI(); // Первичное обновление UI
   }
 
   @override
@@ -119,6 +212,44 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
     // Обновляем текст
     infoText.text = '''🌱 Статистика фермы:
 🟢 Трава: $grassTiles  🟤 Грядки: $tilledTiles  🌾 Растет: $plantedTiles  ⭐ Готово: $grownTiles''';
+
+    // Обновляем текст выбора семян
+    _seedSelectionText.text = 'Выбрано: ${currentCropType.name.toUpperCase()} (Семян: ${seedInventory[currentCropType]}) ';
+
+    // Обновляем текст инвентаря
+    String inventoryStatus = 'Урожай:';
+    harvestedCrops.forEach((type, count) {
+      if (count > 0) {
+        inventoryStatus += ' ${type.name}: $count';
+      }
+    });
+    if (inventoryStatus == 'Урожай:') {
+      inventoryStatus += ' пока нет';
+    }
+    _inventoryText.text = inventoryStatus;
+  }
+}
+
+class TextButtonComponent extends TextComponent with TapCallbacks {
+  final VoidCallback onPressed;
+
+  TextButtonComponent({required String text, required Vector2 position, required this.onPressed})
+      : super(
+          text: text,
+          position: position,
+          textRenderer: TextPaint(
+            style: const TextStyle(
+              color: Colors.deepPurple,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+
+  @override
+  bool onTapDown(TapDownEvent event) {
+    onPressed.call();
+    return true;
   }
 }
 
