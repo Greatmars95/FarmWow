@@ -24,6 +24,7 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   late Sprite _tilledSprite;
   late Map<CropType, Sprite> _grownSprites;
   late Map<CropType, Sprite> _seedSprites;
+  late TextComponent _growthTimeText; // Добавляем компонент для отображения времени
   TileState _state = TileState.grass;
   CropType? _cropType;
   double _growthProgress = 0.0;
@@ -37,18 +38,18 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   
   // Время роста разных культур (в секундах)
   static const Map<CropType, int> growthTimes = {
-    CropType.wheat: 10,   // 10 секунд для теста
-    CropType.carrot: 15,  // 15 секунд
-    CropType.cabbage: 12, // Примерное время роста
-    CropType.onion: 8,    // Примерное время роста
-    CropType.potato: 18,  // Примерное время роста
+    CropType.wheat: 10,   // 10 секунд
+    CropType.carrot: 20,  // 20 секунд
+    CropType.cabbage: 30, // 30 секунд
+    CropType.onion: 50,   // 50 секунд
+    CropType.potato: 40,  // 40 секунд
   };
 
   FarmTile({required this.gridX, required this.gridY})
       : super(
           position: Vector2(gridX * tileSize, gridY * tileSize),
           size: Vector2.all(tileSize),
-          // paint: Paint()..color = Colors.green.shade300, // Убрали начальный сплошной цвет
+          paint: Paint()..color = Colors.transparent, // Сделаем тайл прозрачным по умолчанию
         );
 
   @override
@@ -63,6 +64,20 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
       _grownSprites[cropType] = await gameRef.loadSprite('planting/${cropType.name}.png');
       _seedSprites[cropType] = await gameRef.loadSprite('planting_seeds/${cropType.name}_seed.png');
     }
+
+    // Инициализируем текстовый компонент, но пока не добавляем его в дерево
+    _growthTimeText = TextComponent(
+      position: Vector2(size.x / 2, size.y / 2 + 10), // Примерное положение по центру тайла
+      anchor: Anchor.center,
+      textRenderer: TextPaint(
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          shadows: [Shadow(blurRadius: 2, color: Colors.black)],
+        ),
+      ),
+    );
   }
 
   @override
@@ -74,7 +89,7 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
       _updateGrowth();
     }
     
-    // Обновляем визуал
+    // Обновляем визуал для всех состояний
     _updateVisuals();
   }
 
@@ -90,6 +105,13 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
     final adjustedElapsed = elapsedSeconds * growthMultiplier;
     
     _growthProgress = (adjustedElapsed / totalGrowthTime).clamp(0.0, 1.0);
+
+    // Обновляем текст времени роста
+    if (_state == TileState.planted || _state == TileState.watered) {
+      int remainingSeconds = (totalGrowthTime - adjustedElapsed).ceil();
+      if (remainingSeconds < 0) remainingSeconds = 0; // На всякий случай
+      _growthTimeText.text = '${remainingSeconds}с';
+    }
     
     // Проверяем нужно ли поливать (каждые 5 секунд)
     if (_state == TileState.planted && !_needsWater) {
@@ -105,18 +127,22 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
   }
 
   void _updateVisuals() {
-    // Удаляем все дочерние спрайты перед отрисовкой нового состояния
-    // (если таковые были, чтобы избежать наложения)
+    // Удаляем все дочерние спрайты и текст перед отрисовкой нового состояния
     removeAll(children.whereType<SpriteComponent>());
+    removeAll(children.whereType<TextComponent>().where((c) => c != _growthTimeText)); // Не удаляем сам _growthTimeText
 
     switch (_state) {
       case TileState.grass:
         paint.color = Colors.transparent; // Трава прозрачна
+        // Убираем текст времени, если он был
+        _growthTimeText.removeFromParent();
         break;
       case TileState.tilled:
         // Добавляем спрайт грядки
         add(SpriteComponent(sprite: _tilledSprite, size: size));
         paint.color = Colors.transparent; // Сделаем сам тайл прозрачным, чтобы видеть спрайт
+        // Убираем текст времени, если он был
+        _growthTimeText.removeFromParent();
         break;
       case TileState.planted:
         // Добавляем спрайт семени
@@ -124,6 +150,8 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
           add(SpriteComponent(sprite: _seedSprites[_cropType!]!, size: size));
         }
         paint.color = _needsWater ? Colors.red.shade300 : Colors.transparent; // Красный если нужно поливать, иначе прозрачно
+        // Добавляем текст времени
+        add(_growthTimeText);
         break;
       case TileState.watered:
         // Добавляем спрайт семени (так как оно еще растет)
@@ -131,6 +159,8 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
           add(SpriteComponent(sprite: _seedSprites[_cropType!]!, size: size));
         }
         paint.color = Colors.blue.shade300; // Синий = полито, но спрайт поверх
+        // Добавляем текст времени
+        add(_growthTimeText);
         break;
       case TileState.grown:
         // Добавляем спрайт выросшей культуры
@@ -138,6 +168,8 @@ class FarmTile extends RectangleComponent with HasGameRef, TapCallbacks {
           add(SpriteComponent(sprite: _grownSprites[_cropType!]!, size: size));
         }
         paint.color = Colors.transparent; // Сделаем сам тайл прозрачным, чтобы видеть спрайт
+        // Убираем текст времени
+        _growthTimeText.removeFromParent();
         break;
     }
   }

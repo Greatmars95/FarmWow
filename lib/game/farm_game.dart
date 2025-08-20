@@ -80,10 +80,12 @@ class FarmGame extends FlameGame with HasKeyboardHandlerComponents, HasCollision
   Future<void> onLoad() async {
     // ===== ФОН =====
     final backgroundSprite = await Sprite.load('tiles/area1.png');
+    print('✅ Фон area1.png загружен!');
     add(SpriteComponent(
       sprite: backgroundSprite,
       position: Vector2.zero(),
       size: Vector2(columns * tileSize, rows * tileSize), // Только для игровой сетки
+      priority: -1, // Установим низкий приоритет, чтобы фон рисовался под всем остальным
     ));
 
     // ===== СЕТКА ИГРОВЫХ ТАЙЛОВ =====
